@@ -335,55 +335,88 @@
       tab.viewport.appendChild(dashboard);
       tab.dashboard = dashboard;
     } else {
-      // Load standard IFrame
-      tab.title = extractHost(url);
-      tab.element.querySelector(".tab-title").textContent = tab.title;
+      const isFrameBust = url.includes("google.com") || url.includes("github.com") || url.includes("youtube.com") || url.includes("wikipedia.org") || url.includes("stackoverflow.com");
 
-      // Create a top helper bar advising on embed limits and external browsing
-      const mainFrameContainer = document.createElement("div");
-      mainFrameContainer.style.display = "flex";
-      mainFrameContainer.style.flexDirection = "column";
-      mainFrameContainer.style.width = "100%";
-      mainFrameContainer.style.height = "100%";
-
-      const helperBar = document.createElement("div");
-      helperBar.style.display = "flex";
-      helperBar.style.alignItems = "center";
-      helperBar.style.justifyContent = "space-between";
-      helperBar.style.padding = "4px 12px";
-      helperBar.style.backgroundColor = "var(--vscode-sideBar-background, #252526)";
-      helperBar.style.borderBottom = "1px solid var(--vscode-panel-border, #3c3c3c)";
-      helperBar.style.fontSize = "11px";
-      helperBar.style.color = "var(--vscode-descriptionForeground, #808080)";
-      
-      helperBar.innerHTML = `
-        <span>Previewing: <strong>${url}</strong></span>
-        <button class="secondary-btn" id="btn-open-external-top" style="padding: 2px 8px; font-size: 10px;">
-          Open in External Browser
-        </button>
-      `;
-
-      helperBar.querySelector("#btn-open-external-top").addEventListener("click", () => {
-        vscode.postMessage({ command: "openExternal", url: url });
-      });
-
-      const iframe = document.createElement("iframe");
-      iframe.className = "browser-iframe active";
-      iframe.src = url;
-      iframe.sandbox = "allow-scripts allow-forms allow-same-origin allow-popups";
-
-      // Error failover logic
-      iframe.addEventListener("load", () => {
-        // Many frame-busting sites load blank.
-        // We cannot read the inside of cross-origin frames, but we let users know about external button.
-        tab.title = iframe.title || extractHost(url);
+      if (isFrameBust) {
+        tab.title = extractHost(url);
         tab.element.querySelector(".tab-title").textContent = tab.title;
-      });
 
-      mainFrameContainer.appendChild(helperBar);
-      mainFrameContainer.appendChild(iframe);
-      tab.viewport.appendChild(mainFrameContainer);
-      tab.iframe = iframe;
+        const errorPanel = document.createElement("div");
+        errorPanel.className = "frame-error-panel";
+        errorPanel.innerHTML = `
+          <div class="error-badge">
+            <svg viewBox="0 0 24 24" width="48" height="48" style="color: var(--vscode-descriptionForeground, #808080);"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z" fill="currentColor"/></svg>
+          </div>
+          <div class="error-title" style="font-weight: bold; margin-top: 12px;">Security Restrictions Enabled</div>
+          <div class="error-desc" style="margin: 8px 0 20px 0; max-width: 420px; line-height: 1.5; color: var(--vscode-descriptionForeground, #808080);">
+            This website (<strong>${extractHost(url)}</strong>) strictly prevents embedding inside iframes via standard security headers (X-Frame-Options / Content-Security-Policy).
+          </div>
+          <div class="action-row">
+            <button class="primary-btn" id="btn-open-external-error">Open in External Browser</button>
+            <button class="secondary-btn" id="btn-back-error" style="margin-left: 8px;">Go Back Home</button>
+          </div>
+        `;
+
+        errorPanel.querySelector("#btn-open-external-error").addEventListener("click", () => {
+          vscode.postMessage({ command: "openExternal", url: url });
+        });
+
+        errorPanel.querySelector("#btn-back-error").addEventListener("click", () => {
+          navigateActiveTab("browser://home");
+        });
+
+        tab.viewport.appendChild(errorPanel);
+      } else {
+        // Load standard IFrame
+        tab.title = extractHost(url);
+        tab.element.querySelector(".tab-title").textContent = tab.title;
+
+        // Create a top helper bar advising on embed limits and external browsing
+        const mainFrameContainer = document.createElement("div");
+        mainFrameContainer.style.display = "flex";
+        mainFrameContainer.style.flexDirection = "column";
+        mainFrameContainer.style.width = "100%";
+        mainFrameContainer.style.height = "100%";
+
+        const helperBar = document.createElement("div");
+        helperBar.style.display = "flex";
+        helperBar.style.alignItems = "center";
+        helperBar.style.justifyContent = "space-between";
+        helperBar.style.padding = "4px 12px";
+        helperBar.style.backgroundColor = "var(--vscode-sideBar-background, #252526)";
+        helperBar.style.borderBottom = "1px solid var(--vscode-panel-border, #3c3c3c)";
+        helperBar.style.fontSize = "11px";
+        helperBar.style.color = "var(--vscode-descriptionForeground, #808080)";
+        
+        helperBar.innerHTML = `
+          <span>Previewing: <strong>${url}</strong></span>
+          <button class="secondary-btn" id="btn-open-external-top" style="padding: 2px 8px; font-size: 10px;">
+            Open in External Browser
+          </button>
+        `;
+
+        helperBar.querySelector("#btn-open-external-top").addEventListener("click", () => {
+          vscode.postMessage({ command: "openExternal", url: url });
+        });
+
+        const iframe = document.createElement("iframe");
+        iframe.className = "browser-iframe active";
+        iframe.src = url;
+        iframe.sandbox = "allow-scripts allow-forms allow-same-origin allow-popups";
+
+        // Error failover logic
+        iframe.addEventListener("load", () => {
+          // Many frame-busting sites load blank.
+          // We cannot read the inside of cross-origin frames, but we let users know about external button.
+          tab.title = iframe.title || extractHost(url);
+          tab.element.querySelector(".tab-title").textContent = tab.title;
+        });
+
+        mainFrameContainer.appendChild(helperBar);
+        mainFrameContainer.appendChild(iframe);
+        tab.viewport.appendChild(mainFrameContainer);
+        tab.iframe = iframe;
+      }
     }
   }
 
