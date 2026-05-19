@@ -43,6 +43,9 @@
   // Initial setup: Ask backend for stored bookmarks and history
   vscode.postMessage({ command: "getInitialState" });
 
+  // Pending fetch requests (requestId -> callback)
+  const pendingFetches = {};
+
   // Handle messages from backend
   window.addEventListener("message", (event) => {
     const message = event.data;
@@ -60,6 +63,13 @@
         if (tabs.length === 0) {
           const startupUrl = settings.homepage || "browser://home";
           createNewTab(startupUrl);
+        }
+        break;
+
+      case "fetchUrlResult":
+        if (message.requestId && pendingFetches[message.requestId]) {
+          pendingFetches[message.requestId](message);
+          delete pendingFetches[message.requestId];
         }
         break;
     }
@@ -263,40 +273,38 @@
   }
 
   /**
-   * Reloads the active tab.
+   * Reloads the active tab by re-fetching the current URL.
    */
   function reloadActiveTab() {
     const activeTab = getActiveTab();
-    if (activeTab) {
-      if (activeTab.iframe) {
-        activeTab.iframe.src = activeTab.iframe.src;
-      } else if (activeTab.url === "browser://home") {
-        loadTabContent(activeTab, "browser://home");
-      }
+    if (activeTab && activeTab.url) {
+      loadTabContent(activeTab, activeTab.url);
     }
   }
 
   /**
-   * Translates standard HTTP/HTTPS URLs to the local proxy URL if available.
+   * Generates a unique request ID for async fetch correlation.
    *
-   * @param {string} targetUrl Destination URL.
-   * @returns {string} Proxy-enabled or direct URL.
+   * @returns {string} Unique request identifier.
    */
-  function getIframeUrl(targetUrl) {
-    if (window.PROXY_PORT && targetUrl.startsWith("http") && !targetUrl.includes("localhost") && !targetUrl.includes("127.0.0.1") && !targetUrl.includes("0.0.0.0")) {
-      return `http://localhost:${window.PROXY_PORT}/proxy?url=${encodeURIComponent(targetUrl)}`;
-    }
-    return targetUrl;
+  function generateRequestId() {
+    return "req_" + Date.now() + "_" + Math.random().toString(36).substring(2, 9);
   }
 
   /**
-   * Loads content inside a tab (dashboard vs iframe).
+   * Loads content inside a tab.
+   * For browser://home, renders dashboard directly.
+   * For http/https URLs, fetches via extension host (Node.js, zero CORS) and displays via blob URL.
    *
    * @param {object} tab Tab object.
    * @param {string} url URL to load.
    */
   function loadTabContent(tab, url) {
-    // Clean previous viewport children
+    // Clean previous viewport children and revoke old blob URL
+    if (tab.blobUrl) {
+      URL.revokeObjectURL(tab.blobUrl);
+      tab.blobUrl = null;
+    }
     tab.viewport.innerHTML = "";
     tab.iframe = null;
     tab.dashboard = null;
@@ -305,7 +313,6 @@
       tab.title = "Home Dashboard";
       tab.element.querySelector(".tab-title").textContent = tab.title;
 
-      // Render the elegant dashboard directly
       const dashboard = document.createElement("div");
       dashboard.className = "dashboard-container";
       dashboard.innerHTML = `
@@ -337,7 +344,6 @@
         </div>
       `;
 
-      // Quick Connect port handlers
       dashboard.querySelectorAll(".connect-btn").forEach(btn => {
         btn.addEventListener("click", () => {
           const port = btn.getAttribute("data-port");
@@ -348,11 +354,10 @@
       tab.viewport.appendChild(dashboard);
       tab.dashboard = dashboard;
     } else {
-      // Load standard IFrame
+      // Show loading state
       tab.title = extractHost(url);
       tab.element.querySelector(".tab-title").textContent = tab.title;
 
-      // Create a top helper bar advising on embed limits and external browsing
       const mainFrameContainer = document.createElement("div");
       mainFrameContainer.style.display = "flex";
       mainFrameContainer.style.flexDirection = "column";
@@ -370,7 +375,7 @@
       helperBar.style.color = "var(--vscode-descriptionForeground, #808080)";
       
       helperBar.innerHTML = `
-        <span>Previewing: <strong>${url}</strong></span>
+        <span>Loading: <strong>${url}</strong></span>
         <button class="secondary-btn" id="btn-open-external-top" style="padding: 2px 8px; font-size: 10px;">
           Open in External Browser
         </button>
@@ -380,20 +385,57 @@
         vscode.postMessage({ command: "openExternal", url: url });
       });
 
+      // Create the iframe container (content will be loaded via blob URL)
       const iframe = document.createElement("iframe");
       iframe.className = "browser-iframe active";
-      iframe.src = getIframeUrl(url);
-
-      // Error failover logic
-      iframe.addEventListener("load", () => {
-        tab.title = iframe.title || extractHost(url);
-        tab.element.querySelector(".tab-title").textContent = tab.title;
-      });
+      iframe.style.flex = "1";
+      iframe.style.border = "none";
+      iframe.style.width = "100%";
+      iframe.style.height = "100%";
 
       mainFrameContainer.appendChild(helperBar);
       mainFrameContainer.appendChild(iframe);
       tab.viewport.appendChild(mainFrameContainer);
       tab.iframe = iframe;
+
+      // Request the extension host to fetch this URL using Node.js (zero CORS)
+      const requestId = generateRequestId();
+      pendingFetches[requestId] = (result) => {
+        if (result.success) {
+          // Create blob URL from the fetched HTML and load into iframe
+          const blob = new Blob([result.html], { type: "text/html; charset=utf-8" });
+          const blobUrl = URL.createObjectURL(blob);
+          tab.blobUrl = blobUrl;
+          iframe.src = blobUrl;
+
+          // Update helper bar text
+          const helperSpan = helperBar.querySelector("span");
+          if (helperSpan) {
+            helperSpan.innerHTML = `Previewing: <strong>${url}</strong>`;
+          }
+
+          tab.title = extractHost(url);
+          tab.element.querySelector(".tab-title").textContent = tab.title;
+        } else {
+          // Show error in iframe
+          const errorHtml = `<!DOCTYPE html>
+<html><head><style>
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #1e1e1e; color: #ccc; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+.c { text-align: center; max-width: 480px; padding: 32px; }
+h1 { color: #fff; font-size: 18px; margin-bottom: 12px; }
+p { font-size: 13px; line-height: 1.6; color: #808080; }
+code { background: #2d2d2d; padding: 2px 6px; border-radius: 3px; font-size: 12px; }
+</style></head><body>
+<div class="c"><h1>Connection Failed</h1><p>Could not load <code>${url}</code></p><p>${result.error || "Unknown error"}</p></div>
+</body></html>`;
+          const blob = new Blob([errorHtml], { type: "text/html" });
+          const blobUrl = URL.createObjectURL(blob);
+          tab.blobUrl = blobUrl;
+          iframe.src = blobUrl;
+        }
+      };
+
+      vscode.postMessage({ command: "fetchUrl", url: url, requestId: requestId });
     }
   }
 
