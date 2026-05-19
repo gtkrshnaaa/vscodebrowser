@@ -414,15 +414,8 @@
       return `http://${trimmed}`;
     }
 
-    // Search query fallback
-    let searchUrl = "https://duckduckgo.com/?q=";
-    if (settings.defaultSearchEngine === "google") {
-      searchUrl = "https://www.google.com/search?q=";
-    } else if (settings.defaultSearchEngine === "bing") {
-      searchUrl = "https://www.bing.com/search?q=";
-    }
-
-    return searchUrl + encodeURIComponent(trimmed);
+    // Search query fallback (using Google exclusively)
+    return "https://www.google.com/search?q=" + encodeURIComponent(trimmed);
   }
 
   /**
