@@ -3,6 +3,10 @@
 # Exit on any failure
 set -e
 
+# Resolve the project root directory relative to the script location
+cd "$(dirname "$0")/.."
+echo "📂 Project root set to: $(pwd)"
+
 echo "📦 Starting VSCode Browser packaging process..."
 
 # Add local Node.js sandboxed environment to PATH if present
@@ -24,8 +28,10 @@ npm install
 echo "⚡ Compiling production bundle..."
 npm run package
 
-# 3. Package extension into .vsix file using vsce
+# 3. Package extension into .vsix file inside the release/ directory
 echo "📦 Compiling .vsix package..."
-npx -y @vscode/vsce package --allow-missing-repository
+mkdir -p release
+npx -y @vscode/vsce package --allow-missing-repository -o release/vscodebrowser-0.1.0.vsix
 
-echo "✅ VSCode Browser extension packaged successfully!"
+echo "✅ VSCode Browser extension packaged successfully at: release/vscodebrowser-0.1.0.vsix"
+
