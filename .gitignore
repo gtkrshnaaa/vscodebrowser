@@ -144,4 +144,6 @@ vite.config.ts.timestamp-*
 
 # Packaged extensions
 *.vsix
+release/
+
 
