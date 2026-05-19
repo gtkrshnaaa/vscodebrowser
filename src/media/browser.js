@@ -302,24 +302,6 @@
         </div>
 
         <div class="dashboard-section">
-          <div class="section-title">Select Search Engine</div>
-          <div class="search-engines-grid">
-            <div class="engine-card ${settings.defaultSearchEngine === 'duckduckgo' ? 'active' : ''}" data-engine="duckduckgo">
-              <span class="engine-icon" style="font-weight: bold; font-size: 12px; opacity: 0.8;">D</span>
-              <span class="engine-name">DuckDuckGo</span>
-            </div>
-            <div class="engine-card ${settings.defaultSearchEngine === 'google' ? 'active' : ''}" data-engine="google">
-              <span class="engine-icon" style="font-weight: bold; font-size: 12px; opacity: 0.8;">G</span>
-              <span class="engine-name">Google</span>
-            </div>
-            <div class="engine-card ${settings.defaultSearchEngine === 'bing' ? 'active' : ''}" data-engine="bing">
-              <span class="engine-icon" style="font-weight: bold; font-size: 12px; opacity: 0.8;">B</span>
-              <span class="engine-name">Bing</span>
-            </div>
-          </div>
-        </div>
-
-        <div class="dashboard-section">
           <div class="section-title">Quick Connect (Localhost)</div>
           <div class="quick-connect-grid">
             <button class="connect-btn" data-port="3000">
@@ -341,15 +323,6 @@
           </div>
         </div>
       `;
-
-      // Search engine selection handlers
-      dashboard.querySelectorAll(".engine-card").forEach(card => {
-        card.addEventListener("click", () => {
-          dashboard.querySelectorAll(".engine-card").forEach(c => c.classList.remove("active"));
-          card.classList.add("active");
-          settings.defaultSearchEngine = card.getAttribute("data-engine");
-        });
-      });
 
       // Quick Connect port handlers
       dashboard.querySelectorAll(".connect-btn").forEach(btn => {
