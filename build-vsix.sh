@@ -26,6 +26,6 @@ npm run package
 
 # 3. Package extension into .vsix file using vsce
 echo "📦 Compiling .vsix package..."
-npx -y @vscode/vsce package
+npx -y @vscode/vsce package --allow-missing-repository
 
 echo "✅ VSCode Browser extension packaged successfully!"
