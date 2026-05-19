@@ -1,13 +1,11 @@
 import * as vscode from "vscode";
-import { ProxyServer } from "./proxyServer";
+import { PageFetcher } from "./proxyServer";
 
 /**
  * Manages the lifecycle and UI state of the VSCode Browser Webview Panel.
  */
 export class BrowserPanel {
   public static currentPanel: BrowserPanel | undefined;
-  public static proxyServer: ProxyServer | undefined;
-  public static proxyPort: number = 0;
 
   private static readonly viewType = "vscodebrowser";
   private readonly _panel: vscode.WebviewPanel;
@@ -17,33 +15,19 @@ export class BrowserPanel {
 
   /**
    * Creates or shows the existing browser panel.
-   * Async to ensure the proxy server is ready before the webview renders.
    *
    * @param context The extension context.
    */
-  public static async createOrShow(context: vscode.ExtensionContext): Promise<void> {
+  public static createOrShow(context: vscode.ExtensionContext): void {
     const column = vscode.window.activeTextEditor
       ? vscode.window.activeTextEditor.viewColumn
       : undefined;
 
-    // Start proxy server and await port assignment before creating the panel
-    if (!BrowserPanel.proxyServer) {
-      BrowserPanel.proxyServer = new ProxyServer();
-      try {
-        BrowserPanel.proxyPort = await BrowserPanel.proxyServer.start();
-      } catch (err: any) {
-        vscode.window.showErrorMessage("Failed to start local browser proxy: " + err.message);
-        return;
-      }
-    }
-
-    // If we already have a panel, show it.
     if (BrowserPanel.currentPanel) {
       BrowserPanel.currentPanel._panel.reveal(column);
       return;
     }
 
-    // Create the webview panel with portMapping to tunnel proxy through Electron
     const panel = vscode.window.createWebviewPanel(
       BrowserPanel.viewType,
       "VSCode Browser",
@@ -54,12 +38,6 @@ export class BrowserPanel {
         localResourceRoots: [
           vscode.Uri.joinPath(context.extensionUri, "src", "media"),
           vscode.Uri.joinPath(context.extensionUri, "dist")
-        ],
-        portMapping: [
-          {
-            webviewPort: BrowserPanel.proxyPort,
-            extensionHostPort: BrowserPanel.proxyPort
-          }
         ]
       }
     );
@@ -72,14 +50,10 @@ export class BrowserPanel {
     this._extensionUri = context.extensionUri;
     this._context = context;
 
-    // Set the webview's initial html content
     this._update();
 
-    // Listen for when the panel is disposed
-    // This happens when the user closes the panel or when the panel is closed programmatically
     this._panel.onDidDispose(() => this.dispose(), null, this._disposables);
 
-    // Handle messages from the webview
     this._panel.webview.onDidReceiveMessage(
       async (message) => {
         switch (message.command) {
@@ -101,6 +75,9 @@ export class BrowserPanel {
               }
             }
             break;
+          case "fetchUrl":
+            await this._handleFetchUrl(message.url, message.requestId);
+            break;
           case "showError":
             vscode.window.showErrorMessage(message.text || "An error occurred");
             break;
@@ -112,15 +89,39 @@ export class BrowserPanel {
   }
 
   /**
-   * Sends the saved bookmarks, history, and user configurations back to the webview.
+   * Fetches a URL using Node.js (bypassing all CORS/iframe restrictions)
+   * and sends the HTML content back to the webview via postMessage.
+   *
+   * @param url The target URL to fetch.
+   * @param requestId Unique ID to correlate request/response in the webview.
    */
+  private async _handleFetchUrl(url: string, requestId: string): Promise<void> {
+    try {
+      const result = await PageFetcher.fetch(url);
+      this._panel.webview.postMessage({
+        command: "fetchUrlResult",
+        requestId,
+        success: true,
+        html: result.html,
+        finalUrl: result.finalUrl
+      });
+    } catch (err: any) {
+      this._panel.webview.postMessage({
+        command: "fetchUrlResult",
+        requestId,
+        success: false,
+        error: err.message || "Unknown error",
+        url
+      });
+    }
+  }
+
   private _sendInitialState(): void {
     const bookmarks = this._context.globalState.get<any[]>("vscodebrowser.bookmarks") || [];
     const history = this._context.globalState.get<any[]>("vscodebrowser.history") || [];
     
-    // Fetch settings from workspace configuration
     const config = vscode.workspace.getConfiguration("vscodebrowser");
-    const defaultSearchEngine = config.get<string>("defaultSearchEngine") || "duckduckgo";
+    const defaultSearchEngine = config.get<string>("defaultSearchEngine") || "google";
     const homepage = config.get<string>("homepage") || "";
 
     this._panel.webview.postMessage({
@@ -134,13 +135,8 @@ export class BrowserPanel {
     });
   }
 
-  /**
-   * Cleans up panel resources and references.
-   */
   public dispose(): void {
     BrowserPanel.currentPanel = undefined;
-
-    // Clean up our resources
     this._panel.dispose();
 
     while (this._disposables.length) {
@@ -151,21 +147,12 @@ export class BrowserPanel {
     }
   }
 
-  /**
-   * Updates the HTML structure of the Webview panel.
-   */
   private _update(): void {
     const webview = this._panel.webview;
     this._panel.title = "VSCode Browser";
     this._panel.webview.html = this._getHtmlForWebview(webview);
   }
 
-  /**
-   * Generates the high-fidelity HTML containing links to media scripts and styling.
-   *
-   * @param webview The VS Code Webview instance.
-   * @returns String representing the HTML content.
-   */
   private _getHtmlForWebview(webview: vscode.Webview): string {
     const scriptUri = webview.asWebviewUri(
       vscode.Uri.joinPath(this._extensionUri, "src", "media", "browser.js")
@@ -180,26 +167,20 @@ export class BrowserPanel {
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; frame-src * http: https: data:; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}' ${webview.cspSource}; img-src ${webview.cspSource} https: http: data:; font-src ${webview.cspSource} https:; connect-src * http: https: ws: wss:;">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; frame-src blob: data:; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}' ${webview.cspSource}; img-src ${webview.cspSource} https: http: data:; font-src ${webview.cspSource} https:; connect-src * http: https: ws: wss:;">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link href="${styleUri}" rel="stylesheet">
   <title>VSCode Browser</title>
-  <script nonce="${nonce}">
-    window.PROXY_PORT = ${BrowserPanel.proxyPort};
-  </script>
 </head>
 <body>
   <div id="app-container">
-    <!-- Top Sleek Header Bar -->
     <header class="browser-header">
       <div class="tabs-container" id="tabs-bar">
-        <!-- Dynamic tabs will be inserted here -->
         <button id="btn-new-tab" class="icon-btn tab-action-btn" title="Open New Tab">
           <svg viewBox="0 0 24 24" width="14" height="14"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" fill="currentColor"/></svg>
         </button>
       </div>
 
-      <!-- Navigation toolbar -->
       <div class="toolbar">
         <div class="nav-controls">
           <button id="btn-back" class="icon-btn nav-btn" title="Back">
@@ -234,12 +215,9 @@ export class BrowserPanel {
     </header>
 
     <div class="main-layout">
-      <!-- Main dynamic IFrame viewports container -->
       <main class="webview-viewport" id="viewport-container">
-        <!-- Dynamic iframes are loaded here corresponding to each active tab -->
       </main>
 
-      <!-- Glassmorphic Side Panel for Bookmarks & History -->
       <aside class="sidebar collapsed" id="sidebar-panel">
         <div class="sidebar-header">
           <div class="sidebar-tabs">
@@ -251,24 +229,18 @@ export class BrowserPanel {
           </button>
         </div>
 
-        <!-- Bookmarks Section -->
         <div class="sidebar-content active" id="sidebar-bookmarks">
-          <ul class="sidebar-list" id="bookmarks-list">
-            <!-- Dynamic bookmarks -->
-          </ul>
+          <ul class="sidebar-list" id="bookmarks-list"></ul>
           <div id="bookmarks-empty" class="empty-state">
             No bookmarks saved yet. Click the ribbon icon to add one!
           </div>
         </div>
 
-        <!-- History Section -->
         <div class="sidebar-content" id="sidebar-history">
           <div class="sidebar-actions">
             <button id="btn-clear-history" class="text-btn">Clear History</button>
           </div>
-          <ul class="sidebar-list" id="history-list">
-            <!-- Dynamic history -->
-          </ul>
+          <ul class="sidebar-list" id="history-list"></ul>
           <div id="history-empty" class="empty-state">
             No browsing history recorded.
           </div>
@@ -285,8 +257,6 @@ export class BrowserPanel {
 
 /**
  * Generates a random cryptographic nonce.
- *
- * @returns Nonce string.
  */
 function getNonce(): string {
   let text = "";
