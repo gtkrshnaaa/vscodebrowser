@@ -7,6 +7,7 @@ import { ProxyServer } from "./proxyServer";
 export class BrowserPanel {
   public static currentPanel: BrowserPanel | undefined;
   public static proxyServer: ProxyServer | undefined;
+  public static proxyPort: number = 0;
 
   private static readonly viewType = "vscodebrowser";
   private readonly _panel: vscode.WebviewPanel;
@@ -16,19 +17,24 @@ export class BrowserPanel {
 
   /**
    * Creates or shows the existing browser panel.
+   * Async to ensure the proxy server is ready before the webview renders.
    *
    * @param context The extension context.
    */
-  public static createOrShow(context: vscode.ExtensionContext): void {
+  public static async createOrShow(context: vscode.ExtensionContext): Promise<void> {
     const column = vscode.window.activeTextEditor
       ? vscode.window.activeTextEditor.viewColumn
       : undefined;
 
+    // Start proxy server and await port assignment before creating the panel
     if (!BrowserPanel.proxyServer) {
       BrowserPanel.proxyServer = new ProxyServer();
-      BrowserPanel.proxyServer.start().catch((err) => {
+      try {
+        BrowserPanel.proxyPort = await BrowserPanel.proxyServer.start();
+      } catch (err: any) {
         vscode.window.showErrorMessage("Failed to start local browser proxy: " + err.message);
-      });
+        return;
+      }
     }
 
     // If we already have a panel, show it.
@@ -37,7 +43,7 @@ export class BrowserPanel {
       return;
     }
 
-    // Otherwise, create a new panel.
+    // Create the webview panel with portMapping to tunnel proxy through Electron
     const panel = vscode.window.createWebviewPanel(
       BrowserPanel.viewType,
       "VSCode Browser",
@@ -48,6 +54,12 @@ export class BrowserPanel {
         localResourceRoots: [
           vscode.Uri.joinPath(context.extensionUri, "src", "media"),
           vscode.Uri.joinPath(context.extensionUri, "dist")
+        ],
+        portMapping: [
+          {
+            webviewPort: BrowserPanel.proxyPort,
+            extensionHostPort: BrowserPanel.proxyPort
+          }
         ]
       }
     );
@@ -168,12 +180,12 @@ export class BrowserPanel {
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; frame-src * http: https: data:; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}' ${webview.cspSource}; img-src ${webview.cspSource} https: data:; font-src ${webview.cspSource} https:; connect-src * http: https: ws: wss:;">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; frame-src * http: https: data:; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}' ${webview.cspSource}; img-src ${webview.cspSource} https: http: data:; font-src ${webview.cspSource} https:; connect-src * http: https: ws: wss:;">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link href="${styleUri}" rel="stylesheet">
   <title>VSCode Browser</title>
   <script nonce="${nonce}">
-    window.PROXY_PORT = ${BrowserPanel.proxyServer ? BrowserPanel.proxyServer.getPort() : 0};
+    window.PROXY_PORT = ${BrowserPanel.proxyPort};
   </script>
 </head>
 <body>
