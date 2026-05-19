@@ -11,8 +11,8 @@ export function activate(context: vscode.ExtensionContext): void {
   console.log("VSCode Browser extension is now active.");
 
   // Register command to open the browser panel
-  const openCommand = vscode.commands.registerCommand("vscodebrowser.open", () => {
-    BrowserPanel.createOrShow(context);
+  const openCommand = vscode.commands.registerCommand("vscodebrowser.open", async () => {
+    await BrowserPanel.createOrShow(context);
   });
 
   context.subscriptions.push(openCommand);
@@ -20,8 +20,11 @@ export function activate(context: vscode.ExtensionContext): void {
 
 /**
  * Deactivates the VSCode Browser extension.
- * Cleans up allocated resources.
+ * Cleans up the proxy server and allocated resources.
  */
 export function deactivate(): void {
-  // Clean up hooks or background services if any
+  if (BrowserPanel.proxyServer) {
+    BrowserPanel.proxyServer.stop();
+    BrowserPanel.proxyServer = undefined;
+  }
 }
