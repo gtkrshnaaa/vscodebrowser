@@ -404,7 +404,7 @@ body {
 .dashboard-logo {
   font-size: 42px;
   font-weight: 800;
-  background: linear-gradient(135deg, var(--vscode-textLink-foreground, #3794ff) 0%, #aa00ff 100%);
+  background: linear-gradient(135deg, var(--vscode-editor-foreground, #ffffff) 0%, var(--vscode-descriptionForeground, #808080) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   margin-bottom: 8px;
