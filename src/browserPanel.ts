@@ -172,6 +172,9 @@ export class BrowserPanel {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link href="${styleUri}" rel="stylesheet">
   <title>VSCode Browser</title>
+  <script nonce="${nonce}">
+    window.PROXY_PORT = ${BrowserPanel.proxyServer ? BrowserPanel.proxyServer.getPort() : 0};
+  </script>
 </head>
 <body>
   <div id="app-container">
