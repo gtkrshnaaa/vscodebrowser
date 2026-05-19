@@ -284,7 +284,7 @@
    */
   function getIframeUrl(targetUrl) {
     if (window.PROXY_PORT && targetUrl.startsWith("http") && !targetUrl.includes("localhost") && !targetUrl.includes("127.0.0.1") && !targetUrl.includes("0.0.0.0")) {
-      return `http://127.0.0.1:${window.PROXY_PORT}/proxy?url=${encodeURIComponent(targetUrl)}`;
+      return `http://localhost:${window.PROXY_PORT}/proxy?url=${encodeURIComponent(targetUrl)}`;
     }
     return targetUrl;
   }
