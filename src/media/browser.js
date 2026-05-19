@@ -305,15 +305,15 @@
           <div class="section-title">Select Search Engine</div>
           <div class="search-engines-grid">
             <div class="engine-card ${settings.defaultSearchEngine === 'duckduckgo' ? 'active' : ''}" data-engine="duckduckgo">
-              <span class="engine-icon">🦆</span>
+              <span class="engine-icon" style="font-weight: bold; font-size: 12px; opacity: 0.8;">D</span>
               <span class="engine-name">DuckDuckGo</span>
             </div>
             <div class="engine-card ${settings.defaultSearchEngine === 'google' ? 'active' : ''}" data-engine="google">
-              <span class="engine-icon">🔍</span>
+              <span class="engine-icon" style="font-weight: bold; font-size: 12px; opacity: 0.8;">G</span>
               <span class="engine-name">Google</span>
             </div>
             <div class="engine-card ${settings.defaultSearchEngine === 'bing' ? 'active' : ''}" data-engine="bing">
-              <span class="engine-icon">🌐</span>
+              <span class="engine-icon" style="font-weight: bold; font-size: 12px; opacity: 0.8;">B</span>
               <span class="engine-name">Bing</span>
             </div>
           </div>
