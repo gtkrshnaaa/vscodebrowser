@@ -23,6 +23,14 @@ A premium, high-fidelity, and feature-rich multi-tabbed web browser integrated d
 
 ---
 
+## Keyboard Shortcuts
+
+The extension registers the following default keyboard shortcut:
+- Windows/Linux: Ctrl+Alt+B
+- macOS: Cmd+Alt+B
+
+---
+
 ## Directory Structure
 
 * scripts/
