@@ -24,6 +24,13 @@ export class BrowserPanel {
       ? vscode.window.activeTextEditor.viewColumn
       : undefined;
 
+    if (!BrowserPanel.proxyServer) {
+      BrowserPanel.proxyServer = new ProxyServer();
+      BrowserPanel.proxyServer.start().catch((err) => {
+        vscode.window.showErrorMessage("Failed to start local browser proxy: " + err.message);
+      });
+    }
+
     // If we already have a panel, show it.
     if (BrowserPanel.currentPanel) {
       BrowserPanel.currentPanel._panel.reveal(column);
