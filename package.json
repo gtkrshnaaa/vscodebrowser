@@ -1,0 +1,55 @@
+{
+  "name": "vscodebrowser",
+  "displayName": "VSCode Browser",
+  "description": "A beautiful, premium, and multi-tabbed web browser inside Visual Studio Code.",
+  "version": "0.1.0",
+  "publisher": "gtkrshnaaa",
+  "engines": {
+    "vscode": "^1.75.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "vscodebrowser.open",
+        "title": "VSCode Browser: Open Browser",
+        "category": "VSCode Browser"
+      }
+    ],
+    "configuration": {
+      "title": "VSCode Browser",
+      "properties": {
+        "vscodebrowser.defaultSearchEngine": {
+          "type": "string",
+          "default": "duckduckgo",
+          "enum": [
+            "google",
+            "duckduckgo",
+            "bing"
+          ],
+          "description": "The default search engine to use when typing non-URL queries."
+        },
+        "vscodebrowser.homepage": {
+          "type": "string",
+          "default": "",
+          "description": "The default home page. If left empty, an interactive welcome dashboard is displayed."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run package",
+    "compile": "node esbuild.js",
+    "watch": "node esbuild.js --watch",
+    "package": "node esbuild.js --production"
+  },
+  "devDependencies": {
+    "@types/node": "^18.15.3",
+    "@types/vscode": "^1.75.0",
+    "esbuild": "^0.17.11",
+    "typescript": "^4.9.5"
+  }
+}
