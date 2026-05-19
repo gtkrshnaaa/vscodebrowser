@@ -15,6 +15,9 @@
     "Other"
   ],
   "main": "./dist/extension.js",
+  "activationEvents": [
+    "onCommand:vscodebrowser.open"
+  ],
   "contributes": {
     "commands": [
       {
