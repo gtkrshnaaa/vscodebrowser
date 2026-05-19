@@ -383,7 +383,6 @@
       const iframe = document.createElement("iframe");
       iframe.className = "browser-iframe active";
       iframe.src = getIframeUrl(url);
-      iframe.sandbox = "allow-scripts allow-forms allow-same-origin allow-popups";
 
       // Error failover logic
       iframe.addEventListener("load", () => {
