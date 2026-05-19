@@ -23,6 +23,13 @@
         "category": "VSCode Browser"
       }
     ],
+    "keybindings": [
+      {
+        "command": "vscodebrowser.open",
+        "key": "ctrl+alt+b",
+        "mac": "cmd+alt+b"
+      }
+    ],
     "configuration": {
       "title": "VSCode Browser",
       "properties": {
