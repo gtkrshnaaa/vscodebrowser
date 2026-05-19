@@ -1,0 +1,11 @@
+.git/**
+.vscode/**
+.gitignore
+.vscodeignore
+tsconfig.json
+esbuild.js
+scripts/**
+build-vsix.sh
+src/**/*.ts
+node_modules/**
+release/**
