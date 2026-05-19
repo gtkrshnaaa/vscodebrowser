@@ -19,11 +19,11 @@ async function main() {
   
   if (watch) {
     await ctx.watch();
-    console.log("⚡ Extension compilation watching...");
+    console.log("Extension compilation watching...");
   } else {
     await ctx.rebuild();
     await ctx.dispose();
-    console.log("⚡ Extension compilation completed successfully.");
+    console.log("Extension compilation completed successfully.");
   }
 }
 
