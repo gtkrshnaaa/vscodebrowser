@@ -1,10 +1,12 @@
 import * as vscode from "vscode";
+import { ProxyServer } from "./proxyServer";
 
 /**
  * Manages the lifecycle and UI state of the VSCode Browser Webview Panel.
  */
 export class BrowserPanel {
   public static currentPanel: BrowserPanel | undefined;
+  public static proxyServer: ProxyServer | undefined;
 
   private static readonly viewType = "vscodebrowser";
   private readonly _panel: vscode.WebviewPanel;
